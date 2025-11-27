@@ -181,6 +181,12 @@
             color: #000;
             box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
         }
+        .btn-auto:disabled {
+            border-color: #444;
+            color: #444;
+            cursor: not-allowed;
+            background: rgba(0,0,0,0.2);
+        }
 
         .btn-cashout {
             width: 100%;
@@ -252,6 +258,7 @@
             align-items: center;
             border-radius: 5px;
             transition: 0.2s;
+            user-select: none;
         }
         .upgrade-card:hover { border-color: #f0f; background: rgba(255, 0, 255, 0.05); }
 
@@ -268,9 +275,11 @@
             font-weight: bold;
             min-width: 90px;
             font-size: 14px;
+            user-select: none;
+            -webkit-user-select: none;
         }
         .upgrade-btn:disabled { border-color: #444; color: #444; cursor: not-allowed; }
-        .upgrade-btn:not(:disabled):hover { background: #f0f; color: white; }
+        .upgrade-btn:not(:disabled):active { background: #f0f; color: white; }
 
         /* Floating Text */
         .floating-text {
@@ -503,6 +512,13 @@ class SoundManager {
         }
     }
 
+    playUpgradeBuy(streak) {
+        if (!this.enabled) return;
+        // Pitch rises with streak
+        const freq = Math.min(1500, 300 + (streak * 70));
+        this.playTone(freq, 'triangle', 0.08, 0.15);
+    }
+
     playTypingSound() { if(this.enabled) this.playTone(800 + Math.random() * 400, 'square', 0.05, 0.02); }
     
     playExplosion() {
@@ -576,7 +592,7 @@ const GameState = {
         startMoney: 0,
         multipliers: 0,
         autoDrop: 0,
-        magnet: 0,
+        // magnet removed
         cashback: 0,
         critBounce: 0,
         speed: 0,
@@ -611,63 +627,57 @@ const UPGRADE_defs = {
         desc: "Kenar çarpanları artar (+0.2x).",
         baseCost: 10,
         costMult: 2.5,
-        effect: (lvl) => lvl // used in mult calculation
+        effect: (lvl) => lvl 
     },
     autoDrop: {
         name: "Oto-Pilot",
         desc: "Otomatik atış hızı artar.",
         baseCost: 20,
         costMult: 1.8,
-        effect: (lvl) => Math.max(100, 2000 - (lvl * 100)) // ms interval, min 100ms
+        effect: (lvl) => Math.max(100, 2000 - (lvl * 100)) 
     },
-    magnet: {
-        name: "Manyetik Alan",
-        desc: "Topları kenarlara çeker.",
-        baseCost: 50,
-        costMult: 2.2,
-        effect: (lvl) => lvl * 0.05 // force magnitude
-    },
+    // Magnet Removed
     cashback: {
         name: "Geri Ödeme",
         desc: "Kaybedince % iade al.",
         baseCost: 30,
         costMult: 2.0,
-        effect: (lvl) => Math.min(0.5, lvl * 0.02) // max 50%
+        effect: (lvl) => Math.min(0.5, lvl * 0.02)
     },
     critBounce: {
         name: "Kritik Sekme",
         desc: "Pinlere çarpınca nakit verir.",
         baseCost: 40,
         costMult: 1.7,
-        effect: (lvl) => lvl * 1 // $ per bounce
+        effect: (lvl) => lvl * 1 
     },
     speed: {
         name: "Overclock",
         desc: "Oyun hızı artar.",
         baseCost: 100,
         costMult: 3.0,
-        effect: (lvl) => 1 + (lvl * 0.1) // Physics multiplier
+        effect: (lvl) => 1 + (lvl * 0.1) 
     },
     wallHit: {
         name: "Duvar Ustası",
         desc: "Duvar çarpması bonus verir.",
         baseCost: 45,
         costMult: 1.9,
-        effect: (lvl) => lvl * 5 // $ per wall hit
+        effect: (lvl) => lvl * 5 
     },
     interest: {
         name: "Faiz Lobisi",
         desc: "Her saniye paran % artar.",
         baseCost: 200,
         costMult: 2.5,
-        effect: (lvl) => lvl * 0.001 // 0.1% per lvl per sec
+        effect: (lvl) => lvl * 0.001 
     },
     chipMiner: {
         name: "Ethernet Madencisi",
         desc: "Top düşerken Çip bulma şansı.",
         baseCost: 500,
         costMult: 4.0,
-        effect: (lvl) => lvl * 0.0005 // Chance per frame
+        effect: (lvl) => lvl * 0.0005 
     }
 };
 
@@ -694,7 +704,7 @@ async function triggerAIAnalysis() {
         Durum:
         - Para: ${formatNumber(GameState.currentMoney)}
         - Kur: 1 Çip = $1M
-        - Yükseltmeler: Lv${GameState.upgrades.multipliers} Hack, Lv${GameState.upgrades.magnet} Magnet.
+        - Yükseltmeler: Lv${GameState.upgrades.multipliers} Hack.
         
         Görevin: Oyuncuya duruma uygun, 10-15 kelimelik, Türkçe, siberpunk jargonlu bir yorum yap. 
         Para azsa dalga geç, çoksa daha fazlasını iste. Sadece yorumu yaz.
@@ -794,29 +804,18 @@ class Ball {
         this.color = `hsl(${Math.random() * 60 + 160}, 100%, 50%)`;
         this.trail = [];
         this.cost = 0; // Assigned at spawn
+        this.active = true;
     }
 
     update(pegs, buckets) {
         // Physics Simulation Steps (Overclock)
-        const steps = 1 + UPGRADE_defs.speed.effect(GameState.upgrades.speed); // 1x to ...
-        
-        // Only visual update trail once per frame, but physics multiple times? 
-        // For simplicity, we just boost forces.
+        const steps = 1 + UPGRADE_defs.speed.effect(GameState.upgrades.speed); 
         
         // Apply forces
         this.vy += CONFIG.gravity * steps;
-        this.vx *= CONFIG.friction; // friction is per frame, careful.
+        this.vx *= CONFIG.friction;
         this.vy *= CONFIG.friction;
         
-        // Magnet Logic (Pull to Edges)
-        const magnetForce = UPGRADE_defs.magnet.effect(GameState.upgrades.magnet);
-        if (magnetForce > 0) {
-            const centerX = document.getElementById('gameCanvas').width / 2;
-            const dist = this.x - centerX;
-            // Push away from center
-            this.vx += (dist > 0 ? 1 : -1) * magnetForce * steps;
-        }
-
         this.x += this.vx * steps;
         this.y += this.vy * steps;
 
@@ -854,10 +853,6 @@ class Ball {
             if (dist < this.radius + CONFIG.pegRadius) {
                 const angle = Math.atan2(dy, dx);
                 
-                // Peg Rigging (House Edge vs Magnet)
-                // If Magnet is high, reduce rig
-                const magnetLvl = GameState.upgrades.magnet;
-                
                 // Normal bounce
                 const overlap = (this.radius + CONFIG.pegRadius) - dist;
                 this.x += Math.cos(angle) * overlap;
@@ -866,7 +861,7 @@ class Ball {
                 let bounceForce = 2.0;
                 
                 // House Edge Rigging (Push to center)
-                if (magnetLvl < 5 && Math.random() < 0.6) {
+                if (Math.random() < 0.6) {
                     const centerX = canvasWidth / 2;
                     const dir = (this.x < centerX) ? 1 : -1;
                     this.vx += dir * 0.5; 
@@ -915,7 +910,7 @@ class Ball {
 
     triggerCritBounce() {
         const bonus = UPGRADE_defs.critBounce.effect(GameState.upgrades.critBounce);
-        if (bonus > 0 && Math.random() > 0.5) { // 50% chance per bounce if unlocked
+        if (bonus > 0 && Math.random() > 0.5) { 
             GameState.currentMoney += bonus;
             audio.playCritHit();
         }
@@ -925,7 +920,6 @@ class Ball {
         let winBase = this.cost;
         let winAmount = Math.floor(winBase * multiplier);
         
-        // Cashback Logic
         if (multiplier < 1) {
             const cbRate = UPGRADE_defs.cashback.effect(GameState.upgrades.cashback);
             if (cbRate > 0) {
@@ -1071,9 +1065,10 @@ function showFloatingText(x, y, text, color) {
 function spawnBall(x, y) {
     calculateBetCost();
 
-    if (GameState.betMode === 'min' && GameState.currentMoney < 10 && GameState.currentMoney > 0) {
+    if (GameState.currentMoney > 0 && GameState.currentMoney < GameState.betCost) {
         GameState.betCost = GameState.currentMoney;
     }
+    
     if (GameState.betCost < 1 && GameState.currentMoney >= 1) {
         GameState.betCost = 1;
     }
@@ -1090,7 +1085,7 @@ function spawnBall(x, y) {
     } else {
         document.getElementById('currentMoneyDisplay').style.color = 'red';
         setTimeout(()=> document.getElementById('currentMoneyDisplay').style.color = '#0ff', 200);
-        // Turn off auto if broke
+        
         if(GameState.autoEnabled) toggleAuto();
     }
 }
@@ -1117,16 +1112,13 @@ function setManualBet(val) {
 }
 
 function toggleAuto() {
-    // Only allow if auto upgrade purchased (lvl > 0)
     if (GameState.upgrades.autoDrop === 0) {
-        showFloatingText(canvas.width/2, canvas.height/2, "ÖNCE SATIN AL!", "red");
+        showFloatingText(canvas.width/2, canvas.height/2, "KİLİTLİ: MARKETTE AÇ!", "red");
         return;
     }
     
     GameState.autoEnabled = !GameState.autoEnabled;
-    const btn = document.getElementById('autoBtn');
-    if(GameState.autoEnabled) btn.classList.add('active');
-    else btn.classList.remove('active');
+    updateUI();
 }
 
 function checkGameOver() {
@@ -1135,7 +1127,6 @@ function checkGameOver() {
     }
 }
 
-// Interest Logic
 setInterval(() => {
     if (GameState.active && GameState.upgrades.interest > 0 && GameState.currentMoney > 0) {
         const rate = UPGRADE_defs.interest.effect(GameState.upgrades.interest);
@@ -1147,7 +1138,6 @@ setInterval(() => {
     }
 }, 1000);
 
-// Cash Out
 window.finishRunManually = function() {
     if (!GameState.active || GameState.balls.length > 0) {
         if(GameState.balls.length > 0) showFloatingText(window.innerWidth/2, window.innerHeight/2, "TOPLAR DÜŞMELİ...", "red");
@@ -1173,7 +1163,8 @@ function animateValue(id, start, end, duration, prefix = "", suffix = "") {
 function endRun(isManual = false) {
     GameState.active = false;
     GameState.autoEnabled = false;
-    document.getElementById('autoBtn').classList.remove('active');
+    
+    updateUI();
 
     let reward = 0;
     let endMoney = 0;
@@ -1187,7 +1178,7 @@ function endRun(isManual = false) {
     } else {
         audio.playGameOver();
         endMoney = GameState.maxMoneyInRun;
-        reward = 0; // Hardcore: No pity chips if you fail
+        reward = 0; 
         document.getElementById('goTitle').innerHTML = "SİSTEM <span>ÇÖKTÜ</span>";
         document.getElementById('goTitle').style.color = "#ff4444";
     }
@@ -1222,7 +1213,6 @@ function draw(timestamp) {
     
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Auto Drop Logic
     if (GameState.active && GameState.autoEnabled) {
         const interval = UPGRADE_defs.autoDrop.effect(GameState.upgrades.autoDrop);
         if (timestamp - GameState.lastAutoDrop > interval) {
@@ -1266,10 +1256,7 @@ function draw(timestamp) {
         ctx.textAlign = 'center';
         ctx.fillStyle = b.color;
         
-        // Dynamic Multiplier Text based on upgrades
         let displayMult = b.multiplier;
-        // Optimization: Don't recalc bonus every frame, but fine for canvas 2D
-        
         ctx.fillText(`${displayMult.toFixed(1)}x`, b.x + b.width/2, b.y + 20);
         ctx.fillStyle = b.color;
         ctx.fillRect(b.x, b.y + b.height - 2, b.width, 2);
@@ -1307,18 +1294,27 @@ function updateUI() {
 
     const btn = document.getElementById('dropBtn');
     const cashBtn = document.getElementById('cashOutBtn');
+    const autoBtn = document.getElementById('autoBtn');
     
     const potentialChips = Math.floor(GameState.currentMoney / ECONOMY.conversionRate);
     cashBtn.innerText = `RUN'I BİTİR (+${formatNumber(potentialChips)} ÇİP)`;
 
-    if (GameState.currentMoney < GameState.betCost && GameState.betMode !== 'min' && GameState.currentMoney > 0) {
-         btn.style.borderColor = 'red'; btn.style.opacity = 0.5;
-    } else if (GameState.currentMoney <= 0) {
+    if (GameState.currentMoney < 1) {
         btn.style.borderColor = 'red'; btn.style.opacity = 0.5;
         cashBtn.style.opacity = 0.5; cashBtn.style.pointerEvents = 'none';
     } else {
         btn.style.borderColor = '#0ff'; btn.style.opacity = 1;
         cashBtn.style.opacity = 1; cashBtn.style.pointerEvents = 'auto';
+    }
+
+    if (GameState.upgrades.autoDrop === 0) {
+        autoBtn.innerText = "OTO-PİLOT (KİLİTLİ)";
+        autoBtn.disabled = true;
+    } else {
+        autoBtn.innerText = "OTO-PİLOT";
+        autoBtn.disabled = false;
+        if(GameState.autoEnabled) autoBtn.classList.add('active');
+        else autoBtn.classList.remove('active');
     }
 }
 
@@ -1343,17 +1339,25 @@ function updateShopUI() {
         const def = UPGRADE_defs[key];
         const currentLvl = GameState.upgrades[key];
         
-        let cost = Math.floor(def.baseCost * Math.pow(def.costMult, currentLvl));
-        
         const card = document.createElement('div');
         card.className = 'upgrade-card';
+        
+        let cost = Math.floor(def.baseCost * Math.pow(def.costMult, currentLvl));
+        
         card.innerHTML = `
             <div class="upgrade-info">
                 <h3>${def.name} <span style="color:#0ff; font-size:12px;">LVL ${currentLvl}</span></h3>
                 <p>${def.desc}</p>
                 <div style="font-size:10px; color:#666;">Sonraki Maliyet: ${formatNumber(Math.floor(cost * def.costMult))} Çip</div>
             </div>
-            <button class="upgrade-btn" onclick="buyUpgrade('${key}', ${cost})">
+            <button class="upgrade-btn" 
+                id="btn-${key}"
+                onmousedown="startBuying('${key}')" 
+                onmouseup="stopBuying()" 
+                onmouseleave="stopBuying()"
+                ontouchstart="startBuying('${key}'); event.preventDefault();" 
+                ontouchend="stopBuying(); event.preventDefault();"
+            >
                 ${formatNumber(cost)} ÇİP
             </button>
         `;
@@ -1361,17 +1365,77 @@ function updateShopUI() {
     });
 }
 
-window.buyUpgrade = function(key, cost) {
+// HOLD TO BUY LOGIC
+let holdTimer = null;
+let holdSpeed = 500;
+let holdStreak = 0;
+
+window.startBuying = function(key) {
+    if (holdTimer) return; 
+    buyUpgrade(key); // Buy once immediately
+    holdStreak = 0;
+    holdSpeed = 300; // Start somewhat slow
+    
+    // Recursive timer for acceleration
+    const loop = () => {
+        holdTimer = setTimeout(() => {
+            const success = buyUpgrade(key);
+            if (success) {
+                holdStreak++;
+                // Accelerate
+                holdSpeed = Math.max(50, holdSpeed * 0.85); 
+                audio.playUpgradeBuy(holdStreak);
+                loop();
+            } else {
+                stopBuying();
+            }
+        }, holdSpeed);
+    };
+    
+    loop();
+};
+
+window.stopBuying = function() {
+    if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        holdStreak = 0;
+        holdSpeed = 300;
+    }
+};
+
+window.buyUpgrade = function(key) {
+    // Recalculate cost dynamically inside loop
+    const def = UPGRADE_defs[key];
+    const currentLvl = GameState.upgrades[key];
+    const cost = Math.floor(def.baseCost * Math.pow(def.costMult, currentLvl));
+
     if (GameState.metaCurrency >= cost) {
         GameState.metaCurrency -= cost;
         GameState.upgrades[key]++;
         localStorage.setItem('cyber_rouge_chips', GameState.metaCurrency);
         localStorage.setItem('cyber_rouge_upgrades', JSON.stringify(GameState.upgrades));
-        audio.playSlotHit(10); 
-        updateShopUI();
+        
+        // Only update text elements to keep performance high during hold
+        document.getElementById('shopCurrency').innerText = formatNumber(GameState.metaCurrency);
         document.getElementById('metaCurrencyMenu').innerText = formatNumber(GameState.metaCurrency);
+        
+        // Update specific button text only
+        const nextCost = Math.floor(def.baseCost * Math.pow(def.costMult, currentLvl + 1));
+        const btn = document.getElementById(`btn-${key}`);
+        if(btn) btn.innerText = `${formatNumber(nextCost)} ÇİP`;
+        
+        // Update level text
+        // For simplicity in this structure, we might need full redraw eventually or targeted DOM updates
+        // To keep it robust, we'll redraw whole shop ONLY if not holding fast (optional optimization)
+        // But re-rendering whole list kills hold performance. 
+        // Let's do a targeted text update hack above, or full redraw if slow.
+        if (holdSpeed > 100) updateShopUI(); // Full redraw only at slow speeds
+        
+        return true;
     } else {
-        audio.playSlotHit(0.2); 
+        audio.playSlotHit(0.2); // Fail sound
+        return false;
     }
 };
 
@@ -1388,7 +1452,6 @@ document.getElementById('startBtn').addEventListener('click', () => {
     GameState.particles = [];
     GameState.active = true;
     GameState.autoEnabled = false;
-    document.getElementById('autoBtn').classList.remove('active');
     
     setBetMode('min');
     initBoard();
