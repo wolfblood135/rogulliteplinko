@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Plinko: Cyber Rogue</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 600px; /* Mobil uyumlu dikey oyun alanı */
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Tıklamalar canvas'a geçsin */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .currency-box {
+            text-align: left;
+        }
+
+        .currency-label {
+            font-size: 14px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .currency-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0ff;
+        }
+
+        .meta-currency-value {
+            color: #f0f;
+        }
+
+        .hud-bottom {
+            pointer-events: auto; /* Butonlar tıklanabilir */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #0ff;
+            color: #0ff;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .btn:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-bet {
+            width: 100%;
+            max-width: 300px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+        }
+        
+        .btn-shop {
+            border-color: #f0f;
+            color: #f0f;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.2);
+        }
+        .btn-shop:hover {
+            background: #f0f;
+            color: #000;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.6);
+        }
+
+        /* Menus */
+        .menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        h1 span { color: #0ff; }
+        h1 span.rouge { color: #f0f; }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            width: 80%;
+            max-width: 400px;
+            margin-bottom: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .upgrade-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #444;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 5px;
+            transition: 0.2s;
+        }
+
+        .upgrade-card:hover {
+            border-color: #f0f;
+            background: rgba(255, 0, 255, 0.05);
+        }
+
+        .upgrade-info h3 { margin: 0; font-size: 18px; color: #fff; }
+        .upgrade-info p { margin: 5px 0 0; font-size: 12px; color: #888; }
+        
+        .upgrade-btn {
+            background: transparent;
+            border: 1px solid #f0f;
+            color: #f0f;
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .upgrade-btn:disabled {
+            border-color: #444;
+            color: #444;
+            cursor: not-allowed;
+        }
+
+        .upgrade-btn:not(:disabled):hover {
+            background: #f0f;
+            color: white;
+        }
+
+        /* Floating Text Animation */
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 1s forwards ease-out;
+            text-shadow: 0 0 5px currentColor;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+        }
+        
+        .tutorial {
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Game HUD (Oyun İçi Arayüz) -->
+    <div id="gameUI" class="ui-layer hidden">
+        <div class="hud-top">
+            <div class="currency-box">
+                <div class="currency-label">Run Bakiyesi</div>
+                <div class="currency-value" id="currentMoneyDisplay">$100</div>
+            </div>
+            <div class="currency-box" style="text-align: right;">
+                <div class="currency-label">Max Skor</div>
+                <div class="currency-value" id="maxMoneyDisplay" style="color: #ff0; font-size: 24px;">$100</div>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div style="font-size: 14px; color: #aaa; margin-bottom: 5px;">TOP BEDELİ: $<span id="betCostDisplay">10</span></div>
+            <button class="btn btn-bet" id="dropBtn">TOP BIRAK</button>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="mainMenu" class="menu-overlay">
+        <h1>NEON<span>PLINKO</span><br><span class="rouge">ROGUELITE</span></h1>
+        <div style="margin-bottom: 30px; text-align: center;">
+            <div class="currency-label">CYBER ÇİPLERİN</div>
+            <div class="currency-value meta-currency-value" id="metaCurrencyMenu">0</div>
+        </div>
+        <button class="btn" id="startBtn">RUN'A BAŞLA</button>
+        <br>
+        <button class="btn btn-shop" id="shopBtn">MARKET & YÜKSELTMELER</button>
+        <div class="tutorial">Tıklayarak sesi açın ve oyuna başlayın.<br>Ekranın herhangi bir yerine tıklayarak da top bırakabilirsiniz.</div>
+    </div>
+
+    <!-- Shop Menu -->
+    <div id="shopMenu" class="menu-overlay hidden">
+        <h1>SİBER <span>MARKET</span></h1>
+        <div style="margin-bottom: 20px;">
+            <span class="currency-label">BAKİYE: </span>
+            <span class="currency-value meta-currency-value" id="shopCurrency">0</span>
+        </div>
+        
+        <div class="shop-grid" id="shopGrid">
+            <!-- Upgrades will be injected here via JS -->
+        </div>
+
+        <button class="btn" id="closeShopBtn">GERİ DÖN</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverMenu" class="menu-overlay hidden">
+        <h1 style="color: #ff4444;">SİSTEM <span>ÇÖKTÜ</span></h1>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <p style="color: #aaa; margin: 5px;">RUN MAX BAKİYE</p>
+            <div class="currency-value" id="goMaxMoney" style="color: #fff;">$0</div>
+            <p style="color: #aaa; margin: 15px 0 5px 0;">KAZANILAN CYBER ÇİP</p>
+            <div class="currency-value meta-currency-value" id="goMetaGain">+0</div>
+        </div>
+        <button class="btn btn-bet" id="restartBtn" style="display: none;">İKİNCİ ŞANS KULLAN</button>
+        <br id="spacer" style="display: none;">
+        <button class="btn" id="mainMenuBtn">ANA MENÜ</button>
+    </div>
+
+</div>
+
+<script>
+/**
+ * AUDIO SYSTEM (Synthesized for performance and self-containment)
+ */
+class SoundManager {
+    constructor() {
+        this.ctx = null;
+        this.enabled = false;
+    }
+
+    init() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.enabled = true;
+        } else if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    playTone(freq, type, duration, vol = 0.1) {
+        if (!this.enabled) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    }
+
+    playPegHit() {
+        // High pitched metallic ping
+        this.playTone(800 + Math.random() * 200, 'sine', 0.1, 0.05);
+    }
+
+    playSpawn() {
+        // Soft thud
+        this.playTone(200, 'triangle', 0.1, 0.1);
+    }
+
+    playSlotHit(multiplier) {
+        if (multiplier < 1) {
+            // Low disappointment sound
+            this.playTone(150, 'sawtooth', 0.3, 0.1);
+        } else if (multiplier < 4) {
+            // Good chord
+            this.playTone(440, 'sine', 0.4, 0.1);
+            setTimeout(() => this.playTone(554, 'sine', 0.4, 0.1), 50);
+        } else {
+            // JACKPOT sound
+            this.playTone(440, 'square', 0.1, 0.1);
+            setTimeout(() => this.playTone(554, 'square', 0.1, 0.1), 100);
+            setTimeout(() => this.playTone(659, 'square', 0.1, 0.1), 200);
+            setTimeout(() => this.playTone(880, 'square', 0.6, 0.2), 300);
+        }
+    }
+    
+    playExplosion() {
+        if (!this.enabled) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.5);
+    }
+}
+
+const audio = new SoundManager();
+
+/**
+ * GAME CONSTANTS & CONFIG
+ */
+const CONFIG = {
+    gravity: 0.25,
+    friction: 0.99, // Air resistance
+    restitution: 0.6, // Bounciness
+    pegRadius: 4,
+    ballRadius: 7,
+    rows: 14,
+    pegSpacingX: 35,
+    pegSpacingY: 35
+};
+
+/**
+ * GAME STATE
+ */
+const GameState = {
+    metaCurrency: parseInt(localStorage.getItem('cyber_rouge_chips') || '0'),
+    
+    upgrades: JSON.parse(localStorage.getItem('cyber_rouge_upgrades') || JSON.stringify({
+        startMoney: 0, // Level 0
+        multipliers: 0, // Level 0
+        secondChance: 0 // 0 = false, 1 = true
+    })),
+
+    // Runtime state
+    currentMoney: 100,
+    maxMoneyInRun: 100,
+    betCost: 10,
+    secondChanceUsed: false,
+    balls: [],
+    particles: [],
+    screenShake: 0,
+    active: false
+};
+
+const UPGRADE_defs = {
+    startMoney: {
+        name: "Yatırım Fonu",
+        desc: "Oyuna daha fazla parayla başla.",
+        baseCost: 50,
+        costMult: 1.5,
+        maxLevel: 10,
+        effect: (lvl) => 100 + (lvl * 50)
+    },
+    multipliers: {
+        name: "Hack Modülü",
+        desc: "Kenar çarpanlarını artırır.",
+        baseCost: 100,
+        costMult: 2.0,
+        maxLevel: 5,
+        effect: (lvl) => lvl // Logic handled in bucket generation
+    },
+    secondChance: {
+        name: "Acil Durum Protokolü",
+        desc: "İflas ettiğinde max paranın %25'i ile bir kere diril.",
+        baseCost: 500,
+        costMult: 100, // One time purchase essentially
+        maxLevel: 1,
+        effect: (lvl) => lvl === 1
+    }
+};
+
+/**
+ * PHYSICS CLASSES
+ */
+class Vector {
+    constructor(x, y) { this.x = x; this.y = y; }
+}
+
+class Particle {
+    constructor(x, y, color, speed) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const vel = Math.random() * speed;
+        this.vx = Math.cos(angle) * vel;
+        this.vy = Math.sin(angle) * vel;
+        this.life = 1.0;
+        this.decay = 0.02 + Math.random() * 0.03;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+    }
+
+    draw(ctx) {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+class Ball {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 1; // Slight random start
+        this.vy = 0;
+        this.radius = CONFIG.ballRadius;
+        this.color = `hsl(${Math.random() * 60 + 160}, 100%, 50%)`; // Cyan/Blueish
+        this.trail = [];
+        this.active = true;
+    }
+
+    update(pegs, buckets) {
+        // Gravity
+        this.vy += CONFIG.gravity;
+        this.vx *= CONFIG.friction;
+        this.vy *= CONFIG.friction;
+
+        // Movement
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Wall collisions
+        const canvasWidth = document.getElementById('gameCanvas').width;
+        if (this.x < this.radius) {
+            this.x = this.radius;
+            this.vx *= -0.5;
+        } else if (this.x > canvasWidth - this.radius) {
+            this.x = canvasWidth - this.radius;
+            this.vx *= -0.5;
+        }
+
+        // Trail logic
+        this.trail.push({x: this.x, y: this.y});
+        if (this.trail.length > 10) this.trail.shift();
+
+        // Peg Collisions
+        for (let peg of pegs) {
+            const dx = this.x - peg.x;
+            const dy = this.y - peg.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < this.radius + CONFIG.pegRadius) {
+                // Collision resolution
+                const angle = Math.atan2(dy, dx);
+                
+                // Push out
+                const overlap = (this.radius + CONFIG.pegRadius) - dist;
+                this.x += Math.cos(angle) * overlap;
+                this.y += Math.sin(angle) * overlap;
+
+                // Bounce
+                // Simple elastic collision approx
+                this.vx += Math.cos(angle) * 2; 
+                this.vy *= -0.5;
+                
+                // Juice
+                audio.playPegHit();
+                peg.pulse = 1.0; // Visual flash
+                
+                // Add randomization to prevent stuck loops
+                this.vx += (Math.random() - 0.5) * 1;
+            }
+        }
+
+        // Bucket Collisions (Bottom)
+        if (this.y > buckets[0].y) {
+            for (let bucket of buckets) {
+                if (this.x > bucket.x && this.x < bucket.x + bucket.width) {
+                    this.finish(bucket.multiplier, bucket.color);
+                    return;
+                }
+            }
+        }
+    }
+
+    finish(multiplier, color) {
+        this.active = false;
+        const winAmount = Math.floor(GameState.betCost * multiplier);
+        GameState.currentMoney += winAmount;
+        
+        // Update Max Money Record
+        if (GameState.currentMoney > GameState.maxMoneyInRun) {
+            GameState.maxMoneyInRun = GameState.currentMoney;
+        }
+
+        updateUI();
+        
+        // FX
+        audio.playSlotHit(multiplier);
+        createExplosion(this.x, this.y, color, multiplier > 3 ? 30 : 10);
+        showFloatingText(this.x, this.y - 30, `+$${winAmount}`, multiplier > 1 ? '#0f0' : '#888');
+        
+        if (multiplier >= 10) {
+            GameState.screenShake = 20;
+            // Flash screen
+            const flash = document.createElement('div');
+            flash.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;background:white;opacity:0.5;pointer-events:none;z-index:999;";
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 100);
+        } else if (multiplier > 1) {
+            GameState.screenShake = 5;
+        }
+
+        checkGameOver();
+    }
+
+    draw(ctx) {
+        // Trail
+        ctx.beginPath();
+        for(let i=0; i<this.trail.length; i++) {
+            const p = this.trail[i];
+            ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Ball
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        
+        // Glow
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+
+/**
+ * GAME ENGINE & LOGIC
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let pegs = [];
+let buckets = [];
+let animationId;
+
+function resize() {
+    canvas.width = document.getElementById('game-container').offsetWidth;
+    canvas.height = document.getElementById('game-container').offsetHeight;
+    initBoard();
+}
+
+function initBoard() {
+    pegs = [];
+    buckets = [];
+    
+    // Create Pyramid
+    const startY = 100;
+    const centerX = canvas.width / 2;
+    
+    for (let row = 0; row < CONFIG.rows; row++) {
+        const cols = row + 3;
+        const width = (cols - 1) * CONFIG.pegSpacingX;
+        const startX = centerX - width / 2;
+
+        for (let col = 0; col < cols; col++) {
+            pegs.push({
+                x: startX + col * CONFIG.pegSpacingX,
+                y: startY + row * CONFIG.pegSpacingY,
+                pulse: 0
+            });
+        }
+    }
+
+    // Create Buckets
+    const lastRowY = startY + (CONFIG.rows - 1) * CONFIG.pegSpacingY;
+    const bucketY = lastRowY + 40;
+    const bucketWidth = CONFIG.pegSpacingX;
+    const totalBuckets = CONFIG.rows + 2; // Approximate base
+    const startX = centerX - ((totalBuckets) * bucketWidth) / 2;
+
+    // Multiplier Distribution (Bell Curve-ish but inverted risk)
+    // Center is low, Edges are high
+    // Base: [10, 3, 1.5, 1, 0.5, 0.2, 0.2, 0.5, 1, 1.5, 3, 10] roughly
+    // Algorithmically generate symmetric multipliers
+    let mults = [];
+    const centerIndex = Math.floor(totalBuckets / 2);
+    
+    // Multiplier Hack Upgrade logic
+    const bonus = GameState.upgrades.multipliers * 0.2; 
+    
+    for(let i=0; i<totalBuckets; i++) {
+        let dist = Math.abs(i - centerIndex);
+        let val = 0.2; // absolute loss center
+        
+        if (dist === 0) val = 0.2;
+        else if (dist === 1) val = 0.4;
+        else if (dist === 2) val = 0.8;
+        else if (dist === 3) val = 1.2 + bonus;
+        else if (dist === 4) val = 3.0 + bonus;
+        else if (dist === 5) val = 8.0 + (bonus * 2);
+        else if (dist >= 6) val = 25.0 + (bonus * 5); // JACKPOT
+
+        mults.push(val);
+    }
+
+    for (let i = 0; i < totalBuckets; i++) {
+        let val = mults[i];
+        let color = '#fff';
+        if (val < 1) color = '#f00'; // Loss
+        else if (val < 3) color = '#aa0'; // Small win
+        else if (val < 10) color = '#0f0'; // Big win
+        else color = '#f0f'; // Jackpot
+
+        buckets.push({
+            x: startX + i * bucketWidth,
+            y: bucketY,
+            width: bucketWidth - 4, // spacing
+            height: 30,
+            multiplier: val,
+            color: color
+        });
+    }
+}
+
+function createExplosion(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+        GameState.particles.push(new Particle(x, y, color, 5));
+    }
+}
+
+function showFloatingText(x, y, text, color) {
+    const el = document.createElement('div');
+    el.className = 'floating-text';
+    el.innerText = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    document.getElementById('game-container').appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+}
+
+function spawnBall(x, y) {
+    if (GameState.currentMoney >= GameState.betCost) {
+        GameState.currentMoney -= GameState.betCost;
+        updateUI();
+        GameState.balls.push(new Ball(x, y));
+        audio.playSpawn();
+    } else {
+        // Error sound/effect
+        document.getElementById('currentMoneyDisplay').style.color = 'red';
+        setTimeout(()=> document.getElementById('currentMoneyDisplay').style.color = '#0ff', 200);
+    }
+}
+
+function checkGameOver() {
+    // Only game over if no balls are active and money is less than bet cost
+    if (GameState.balls.length === 0 && GameState.currentMoney < GameState.betCost) {
+        
+        // Check for Second Chance
+        if (GameState.upgrades.secondChance === 1 && !GameState.secondChanceUsed) {
+            triggerSecondChance();
+            return;
+        }
+
+        setTimeout(() => {
+            endRun();
+        }, 1000);
+    }
+}
+
+function triggerSecondChance() {
+    GameState.active = false; // Pause spawning
+    const reviveAmount = Math.floor(GameState.maxMoneyInRun * 0.25);
+    
+    // UI Dialog within game for dramatic effect
+    const div = document.createElement('div');
+    div.style.cssText = "position:absolute; top:40%; left:10%; width:80%; background:black; border:2px solid #f0f; padding:20px; text-align:center; z-index:500; color:#fff;";
+    div.innerHTML = `<h2 style="color:#f0f">SİSTEM HATASI ALGILANDI</h2><p>Acil Durum Protokolü devrede...</p><h1 style="color:#0ff">+$${reviveAmount}</h1>`;
+    document.getElementById('game-container').appendChild(div);
+
+    setTimeout(() => {
+        GameState.currentMoney = reviveAmount;
+        GameState.secondChanceUsed = true;
+        GameState.active = true;
+        updateUI();
+        div.remove();
+        audio.playExplosion();
+    }, 2000);
+}
+
+function endRun() {
+    GameState.active = false;
+    
+    // Calculate rewards
+    const reward = Math.floor(GameState.maxMoneyInRun * 0.10); // 10% of max run
+    GameState.metaCurrency += reward;
+    localStorage.setItem('cyber_rouge_chips', GameState.metaCurrency);
+
+    document.getElementById('goMaxMoney').innerText = `$${GameState.maxMoneyInRun}`;
+    document.getElementById('goMetaGain').innerText = `+${reward} ÇİP`;
+    
+    // Show Game Over Screen
+    document.getElementById('gameUI').classList.add('hidden');
+    document.getElementById('gameOverMenu').classList.remove('hidden');
+}
+
+/**
+ * RENDERING
+ */
+function draw() {
+    // Clear
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Screen Shake application
+    let shakeX = 0, shakeY = 0;
+    if (GameState.screenShake > 0) {
+        shakeX = (Math.random() - 0.5) * GameState.screenShake;
+        shakeY = (Math.random() - 0.5) * GameState.screenShake;
+        GameState.screenShake *= 0.9;
+        if(GameState.screenShake < 0.5) GameState.screenShake = 0;
+    }
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // Draw Pegs
+    for (let peg of pegs) {
+        ctx.beginPath();
+        ctx.arc(peg.x, peg.y, CONFIG.pegRadius, 0, Math.PI * 2);
+        
+        if (peg.pulse > 0.01) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${peg.pulse})`;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fff';
+            peg.pulse *= 0.9;
+        } else {
+            ctx.fillStyle = '#333';
+            ctx.shadowBlur = 0;
+        }
+        
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // Draw Buckets
+    for (let b of buckets) {
+        // Box
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+        
+        // Multiplier Text
+        ctx.font = 'bold 12px Rajdhani';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = b.color;
+        ctx.fillText(`${b.multiplier}x`, b.x + b.width/2, b.y + 20);
+        
+        // Glow line at bottom
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y + b.height - 2, b.width, 2);
+    }
+
+    // Draw Balls
+    for (let i = GameState.balls.length - 1; i >= 0; i--) {
+        let ball = GameState.balls[i];
+        if (ball.active) {
+            ball.update(pegs, buckets);
+            ball.draw(ctx);
+        } else {
+            GameState.balls.splice(i, 1);
+        }
+    }
+
+    // Draw Particles
+    for (let i = GameState.particles.length - 1; i >= 0; i--) {
+        let p = GameState.particles[i];
+        p.update();
+        p.draw(ctx);
+        if (p.life <= 0) GameState.particles.splice(i, 1);
+    }
+
+    ctx.restore();
+
+    animationId = requestAnimationFrame(draw);
+}
+
+/**
+ * UI & INTERACTION
+ */
+function updateUI() {
+    document.getElementById('currentMoneyDisplay').innerText = `$${Math.floor(GameState.currentMoney)}`;
+    document.getElementById('maxMoneyDisplay').innerText = `$${Math.floor(GameState.maxMoneyInRun)}`;
+    
+    // Auto adjust bet cost based on wealth? Or keep static?
+    // Let's keep static for strategy, but maybe warn if low.
+    const btn = document.getElementById('dropBtn');
+    if (GameState.currentMoney < GameState.betCost) {
+        btn.style.borderColor = 'red';
+        btn.style.opacity = 0.5;
+    } else {
+        btn.style.borderColor = '#0ff';
+        btn.style.opacity = 1;
+    }
+}
+
+function updateShopUI() {
+    document.getElementById('shopCurrency').innerText = GameState.metaCurrency;
+    const grid = document.getElementById('shopGrid');
+    grid.innerHTML = '';
+
+    Object.keys(UPGRADE_defs).forEach(key => {
+        const def = UPGRADE_defs[key];
+        const currentLvl = GameState.upgrades[key];
+        const isMax = currentLvl >= def.maxLevel;
+        
+        // Calculate Cost: Base * (Mult ^ Level)
+        let cost = Math.floor(def.baseCost * Math.pow(def.costMult, currentLvl));
+        
+        const card = document.createElement('div');
+        card.className = 'upgrade-card';
+        card.innerHTML = `
+            <div class="upgrade-info">
+                <h3>${def.name} <span style="color:#0ff; font-size:12px;">LVL ${currentLvl}</span></h3>
+                <p>${def.desc}</p>
+            </div>
+            <button class="upgrade-btn" ${isMax ? 'disabled' : ''} onclick="buyUpgrade('${key}', ${cost})">
+                ${isMax ? 'MAX' : '$' + cost}
+            </button>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+window.buyUpgrade = function(key, cost) {
+    if (GameState.metaCurrency >= cost) {
+        GameState.metaCurrency -= cost;
+        GameState.upgrades[key]++;
+        localStorage.setItem('cyber_rouge_chips', GameState.metaCurrency);
+        localStorage.setItem('cyber_rouge_upgrades', JSON.stringify(GameState.upgrades));
+        audio.playSlotHit(10); // Success sound
+        updateShopUI();
+        document.getElementById('metaCurrencyMenu').innerText = GameState.metaCurrency;
+    } else {
+        audio.playSlotHit(0.2); // Fail sound
+    }
+};
+
+// Event Listeners
+document.getElementById('startBtn').addEventListener('click', () => {
+    audio.init();
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('gameUI').classList.remove('hidden');
+    
+    // Start Run
+    const startBonus = UPGRADE_defs.startMoney.effect(GameState.upgrades.startMoney);
+    GameState.currentMoney = startBonus;
+    GameState.maxMoneyInRun = startBonus;
+    GameState.secondChanceUsed = false;
+    GameState.balls = [];
+    GameState.particles = [];
+    GameState.active = true;
+    
+    initBoard();
+    updateUI();
+    draw();
+});
+
+document.getElementById('shopBtn').addEventListener('click', () => {
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('shopMenu').classList.remove('hidden');
+    updateShopUI();
+});
+
+document.getElementById('closeShopBtn').addEventListener('click', () => {
+    document.getElementById('shopMenu').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+});
+
+document.getElementById('dropBtn').addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent canvas click
+    if(GameState.active) spawnBall(canvas.width / 2 + (Math.random() * 20 - 10), 50);
+});
+
+// Canvas Click to drop
+document.getElementById('game-container').addEventListener('mousedown', (e) => {
+    if (e.target.tagName !== 'BUTTON' && GameState.active && document.getElementById('gameUI').classList.contains('hidden') === false) {
+        audio.init(); // Ensure audio context is ready
+        spawnBall(canvas.width / 2 + (Math.random() * 20 - 10), 50);
+    }
+});
+
+document.getElementById('mainMenuBtn').addEventListener('click', () => {
+    document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+    document.getElementById('metaCurrencyMenu').innerText = GameState.metaCurrency;
+    cancelAnimationFrame(animationId);
+});
+
+// Init
+window.addEventListener('resize', resize);
+resize();
+document.getElementById('metaCurrencyMenu').innerText = GameState.metaCurrency;
+
+</script>
+</body>
+</html>
